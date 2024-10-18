@@ -26,6 +26,10 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
+## How to test
+
+docker-compose up --build
+
 ## Project setup
 
 ```bash

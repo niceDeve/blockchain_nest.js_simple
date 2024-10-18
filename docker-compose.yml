@@ -15,7 +15,7 @@ services:
     restart: unless-stopped
 
   postgres:
-    image: postgres:13
+    image: postgres:17
     ports:
       - '5432:5432'
     environment:

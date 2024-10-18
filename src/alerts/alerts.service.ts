@@ -41,7 +41,6 @@ export class AlertsService {
         }
       });
     }
-    console.log('---------------ehrere------------', result, typeof result);
   }
 
   private async getGmailToAlert() {

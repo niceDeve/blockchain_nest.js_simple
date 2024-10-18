@@ -1,11 +1,10 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import Moralis from 'moralis';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Alert } from './alerts.entity';
 import { Price } from '../prices/prices.entity';
 import { EmailService } from '../email/email.service';
-import { Repository, LessThan } from 'typeorm';
+import { Repository, LessThan, Any } from 'typeorm';
 import { SetAlertDto } from './alerts.dto';
 import * as dotenv from 'dotenv';
 dotenv.config();
@@ -14,8 +13,9 @@ dotenv.config();
 export class AlertsService {
   constructor(
     @InjectRepository(Alert)
-    private priceRepository: Repository<Price>,
     private alertRepository: Repository<Alert>,
+    @InjectRepository(Price)
+    private priceRepository: Repository<Price>,
     private readonly emailService: EmailService,
   ) {}
 
@@ -28,13 +28,55 @@ export class AlertsService {
     // }
   }
 
-  private async getGmailToAlert() {
-    const latestPrices = await this.priceRepository.find({
-      order: { timestamp: 'DESC' },
-      take: 1,
-    });
+  @Cron(CronExpression.EVERY_5_MINUTES)
+  async handleCronSendAlert() {
+    const result = await this.getGmailToAlert();
+    if (result.length > 0) {
+      result.map(async (item: any) => {
+        try {
+          await this.emailService.sendEmail(item.email, 'alert', item.text);
+          console.log('Successful sent alert to ', item.email);
+        } catch (e) {
+          console.log('Failed to send alert: ', e);
+        }
+      });
+    }
+    console.log('---------------ehrere------------', result, typeof result);
+  }
 
-    if (latestPrices.length > 0) {
+  private async getGmailToAlert() {
+    try {
+      const latestPrices = await this.priceRepository.find({
+        order: { timestamp: 'DESC' },
+        take: 1,
+      });
+
+      if (latestPrices.length > 0) {
+        const { eth_price: currentEthPrice, pol_price: currentPolPrice } =
+          latestPrices[0];
+        const query = `
+                SELECT
+                    chain,
+                    price,
+                    email,
+                    CASE WHEN chain = 1 THEN 'Ethereum' WHEN chain = 2 THEN 'Polygon' END as token_name
+                FROM alert
+                WHERE (chain = 1 AND price < $1) OR (chain = 2 AND price < $2)
+            `;
+        const result = await this.alertRepository.query(query, [
+          currentEthPrice,
+          currentPolPrice,
+        ]);
+        const alerts = result.map((row: any) => ({
+          text: `${row.token_name} Price is higher than ${row.price}`,
+          email: row.email,
+        }));
+        return alerts;
+      } else {
+        return [];
+      }
+    } catch (e) {
+      console.error('Failed to get alertGmail: ', e);
     }
   }
 

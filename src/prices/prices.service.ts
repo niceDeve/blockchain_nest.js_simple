@@ -3,7 +3,6 @@ import Moralis from 'moralis';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import axios from 'axios';
 import { Price } from './prices.entity';
 import { EmailService } from '../email/email.service';
 import * as dotenv from 'dotenv';
